@@ -83,7 +83,11 @@ void print_results(float array[N], int tid, int section)
     printf("\n");
   } /*** end of critical ***/
 
-  #pragma omp barrier
+  //#pragma omp barrier         //commented out
+                                //only one thread executes the function, which means
+                                //only this thread can reach the barrier and then waits
+                                //other threads to come. However, no other thread can
+                                //reach this point, causing deadlock.
   printf("Thread %d done and synchronized.\n", tid); 
 
 }
