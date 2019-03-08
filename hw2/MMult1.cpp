@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <omp.h>
+#include <time.h>
 #include "utils.h"
 
 #define BLOCK_SIZE 16
@@ -24,23 +25,101 @@ void MMult0(long m, long n, long k, double *a, double *b, double *c) {
   }
 }
 
-void MMult1(long m, long n, long k, double *a, double *b, double *c) {
-  // TODO: See instructions below
+
+void MMult_omp(long m, long n, long k, double *a, double *b, double *c)
+{
+  long i, j, p;
+#pragma omp parallel num_threads(16)
+{
+  #pragma omp for collapse(2)
+  for(i = 0; i< m; ++i)
+  {
+    for(j=0;j<n;++j)
+    {
+      double sum = c[i+j*m];
+      for(p = 0; p< k; ++p)
+        sum += a[i+p*m]*b[p+j*k];
+      c[i + j*m] = sum;
+    }
+  }
+
 }
+
+}
+
+void MMult1(long m, long n, long k, double *a, double *b, double *c)
+{
+  // TODO: See instructions below
+  // Sequential algorithm: tiling techneque to optimize cache usage
+  int num_iblock = (m+BLOCK_SIZE-1)/BLOCK_SIZE;
+  int num_jblock = (n+BLOCK_SIZE-1)/BLOCK_SIZE;
+  int num_pblock = (k+BLOCK_SIZE-1)/BLOCK_SIZE;
+
+  double ar[BLOCK_SIZE*BLOCK_SIZE],br[BLOCK_SIZE*BLOCK_SIZE],cr[BLOCK_SIZE*BLOCK_SIZE];
+
+  for(int ii = 0; ii< num_iblock; ++ii)
+  {
+    for(int jj=0; jj< num_jblock; ++jj)
+    {
+      int ilimit = BLOCK_SIZE;
+      int jlimit = BLOCK_SIZE;
+      if(ii==num_iblock-1)
+        ilimit = m - (num_iblock-1)*BLOCK_SIZE;
+      if(jj==num_jblock-1)
+        jlimit = n - (num_jblock-1)*BLOCK_SIZE;
+      //bringing the current c matrix block into fast memory
+      for(int i=0;i<ilimit;++i)
+        for(int j=0;j<jlimit;++j)
+          cr[i + j*BLOCK_SIZE] = c[BLOCK_SIZE*ii + i + (BLOCK_SIZE*jj + j)*m];
+      for(int pp=0; pp<num_pblock;++pp)
+      {
+        int plimit = BLOCK_SIZE;
+        if(pp==num_pblock-1)
+          plimit = k - (num_pblock-1)*BLOCK_SIZE;
+        //bringing the current a and b matrix blocks into fast memory
+        for(int i=0;i<ilimit;++i)
+          for(int p=0;p<plimit;++p)
+            ar[i+p*BLOCK_SIZE] = a[BLOCK_SIZE*ii + i+(pp*BLOCK_SIZE+p)*m];
+        for(int p=0;p<plimit;++p)
+          for(int j=0;j<jlimit;++j)
+            br[p+j*BLOCK_SIZE] = b[pp*BLOCK_SIZE+p+(BLOCK_SIZE*jj + j)*k];
+        //matrix block multiplication: pij pattern
+        for(int p=0;p<plimit;++p)
+          for(int i=0;i<ilimit;++i)
+            for(int j=0;j<jlimit;++j)
+              cr[i+j*BLOCK_SIZE] += ar[i+p*BLOCK_SIZE]*br[p+j*BLOCK_SIZE];
+      }
+
+      for(int i=0;i<ilimit;++i)
+        for(int j=0;j<jlimit;++j)
+          c[BLOCK_SIZE*ii + i + (BLOCK_SIZE*jj + j)*m]=cr[i + j*BLOCK_SIZE];
+
+   }
+ }
+
+
+}
+
 
 int main(int argc, char** argv) {
   const long PFIRST = BLOCK_SIZE;
   const long PLAST = 2000;
   const long PINC = std::max(50/BLOCK_SIZE,1) * BLOCK_SIZE; // multiple of BLOCK_SIZE
 
-  printf(" Dimension       Time    Gflop/s       GB/s        Error\n");
+  printf(" Dimension       Time    Gflop/s       GB/s        Error        BlockTime\n");
   for (long p = PFIRST; p < PLAST; p += PINC) {
     long m = p, n = p, k = p;
     long NREPEATS = 1e9/(m*n*k)+1;
+
     double* a = (double*) aligned_malloc(m * k * sizeof(double)); // m x k
     double* b = (double*) aligned_malloc(k * n * sizeof(double)); // k x n
     double* c = (double*) aligned_malloc(m * n * sizeof(double)); // m x n
     double* c_ref = (double*) aligned_malloc(m * n * sizeof(double)); // m x n
+
+    //double* a = (double*)     malloc(m * k * sizeof(double)); // m x k
+    //double* b = (double*)     malloc(k * n * sizeof(double)); // k x n
+    //double* c = (double*)     malloc(m * n * sizeof(double)); // m x n
+    //double* c_ref = (double*) malloc(m * n * sizeof(double)); // m x n
 
     // Initialize matrices
     for (long i = 0; i < m*k; i++) a[i] = drand48();
@@ -48,27 +127,43 @@ int main(int argc, char** argv) {
     for (long i = 0; i < m*n; i++) c_ref[i] = 0;
     for (long i = 0; i < m*n; i++) c[i] = 0;
 
+
+    // Added: another way to calculated time lapse
+    struct timespec t1, t2;
+    double timediff0;
+    clock_gettime(CLOCK_MONOTONIC, &t1);
     for (long rep = 0; rep < NREPEATS; rep++) { // Compute reference solution
-      MMult0(m, n, k, a, b, c_ref);
+      MMult1(m, n, k, a, b, c_ref);
     }
+    clock_gettime(CLOCK_MONOTONIC, &t2);
+    timediff0 = (t2.tv_sec + t2.tv_nsec/1e9) - (t1.tv_sec + t1.tv_nsec/1e9);
+    //printf("omp: %10f\n",timediff0);
+
+
 
     Timer t;
     t.tic();
     for (long rep = 0; rep < NREPEATS; rep++) {
-      MMult1(m, n, k, a, b, c);
+      MMult_omp(m, n, k, a, b, c);
     }
     double time = t.toc();
-    double flops = 0; // TODO: calculate from m, n, k, NREPEATS, time
-    double bandwidth = 0; // TODO: calculate from m, n, k, NREPEATS, time
+    double flops = m*n*(2.0*k-1)*NREPEATS/time/1e9; // TODO: calculate from m, n, k, NREPEATS, time
+    double bandwidth = 4.0*m*n*k*NREPEATS/time/1e9; // TODO: calculate from m, n, k, NREPEATS, time
     printf("%10d %10f %10f %10f", p, time, flops, bandwidth);
 
     double max_err = 0;
     for (long i = 0; i < m*n; i++) max_err = std::max(max_err, fabs(c[i] - c_ref[i]));
-    printf(" %10e\n", max_err);
+    printf(" %10e %10f\n", max_err,timediff0);
 
     aligned_free(a);
     aligned_free(b);
     aligned_free(c);
+    aligned_free(c_ref);
+
+    //free(a);
+    //free(b);
+    //free(c);
+    //free(c_ref);
   }
 
   return 0;
