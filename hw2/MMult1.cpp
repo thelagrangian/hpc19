@@ -28,24 +28,59 @@ void MMult0(long m, long n, long k, double *a, double *b, double *c) {
 
 void MMult_omp(long m, long n, long k, double *a, double *b, double *c)
 {
-  long i, j, p;
-#pragma omp parallel num_threads(16)
-{
-  #pragma omp for collapse(2)
-  for(i = 0; i< m; ++i)
+  // TODO: See instructions below
+  // Sequential algorithm: tiling techneque to optimize cache usage
+  int num_iblock = (m+BLOCK_SIZE-1)/BLOCK_SIZE;
+  int num_jblock = (n+BLOCK_SIZE-1)/BLOCK_SIZE;
+  int num_pblock = (k+BLOCK_SIZE-1)/BLOCK_SIZE;
+
+#pragma omp parallel for collapse(2) num_threads(16)
+  for(int ii = 0; ii< num_iblock; ++ii)
   {
-    for(j=0;j<n;++j)
+    for(int jj=0; jj< num_jblock; ++jj)
     {
-      double sum = c[i+j*m];
-      for(p = 0; p< k; ++p)
-        sum += a[i+p*m]*b[p+j*k];
-      c[i + j*m] = sum;
-    }
-  }
+      int ilimit = BLOCK_SIZE;
+      int jlimit = BLOCK_SIZE;
+      double ar[BLOCK_SIZE*BLOCK_SIZE],br[BLOCK_SIZE*BLOCK_SIZE],cr[BLOCK_SIZE*BLOCK_SIZE];
+      if(ii==num_iblock-1)
+        ilimit = m - (num_iblock-1)*BLOCK_SIZE;
+      if(jj==num_jblock-1)
+        jlimit = n - (num_jblock-1)*BLOCK_SIZE;
+      //bringing the current c matrix block into fast memory
+      for(int i=0;i<ilimit;++i)
+        for(int j=0;j<jlimit;++j)
+          cr[i + j*BLOCK_SIZE] = c[BLOCK_SIZE*ii + i + (BLOCK_SIZE*jj + j)*m];
+      for(int pp=0; pp<num_pblock;++pp)
+      {
+        int plimit = BLOCK_SIZE;
+        if(pp==num_pblock-1)
+          plimit = k - (num_pblock-1)*BLOCK_SIZE;
+        //bringing the current a and b matrix blocks into fast memory
+        for(int i=0;i<ilimit;++i)
+          for(int p=0;p<plimit;++p)
+            ar[i+p*BLOCK_SIZE] = a[BLOCK_SIZE*ii + i+(pp*BLOCK_SIZE+p)*m];
+        for(int p=0;p<plimit;++p)
+          for(int j=0;j<jlimit;++j)
+            br[p+j*BLOCK_SIZE] = b[pp*BLOCK_SIZE+p+(BLOCK_SIZE*jj + j)*k];
+        //matrix block multiplication: pij pattern
+        for(int p=0;p<plimit;++p)
+          for(int i=0;i<ilimit;++i)
+            for(int j=0;j<jlimit;++j)
+              cr[i+j*BLOCK_SIZE] += ar[i+p*BLOCK_SIZE]*br[p+j*BLOCK_SIZE];
+      }
+
+      for(int i=0;i<ilimit;++i)
+        for(int j=0;j<jlimit;++j)
+          c[BLOCK_SIZE*ii + i + (BLOCK_SIZE*jj + j)*m]=cr[i + j*BLOCK_SIZE];
+
+   }
+ }
+
 
 }
 
-}
+
+
 
 void MMult1(long m, long n, long k, double *a, double *b, double *c)
 {
