@@ -3,6 +3,7 @@
 #include<math.h>
 #include<time.h>
 #include<string.h>
+#include<float.h>
 
 
 double timelapse(struct timespec*start, struct timespec*end)
@@ -89,6 +90,113 @@ void jacobi_seq(int n, double h, double*u, double reltol, int maxiter)
 
   //printf("jacobi seq %d, original error: %f, final error: %f, iteration: %d\n", n, tol/reltol, err, iter);
   printf("jacobi seq, size: %d, iteration: %d\n", n, iter);
+
+  if(iter%2==1)
+    memcpy(u, y, sizeof(double)*(n+2)*(n+2));
+
+  free(y);
+
+}
+
+void jacobi_omp2(int n, double h, double*u, double reltol, int maxiter, int nthreads)
+{
+  int iter = 0;
+  double* x = u;
+  double* y = (double*)calloc((n+2)*(n+2), sizeof(double));
+  int i, j;
+  double err= 0.0;
+  double tol;
+
+
+#pragma omp parallel num_threads(nthreads)
+{
+
+  while(1)
+  {
+
+  #pragma omp single
+  {
+    err = 0.0;
+  }
+  //#pragma omp barrier
+
+
+    // point-wise calculation
+    if(iter%2 == 1)
+    {
+  #pragma omp for collapse(2)
+      for(i = 1; i < n + 1; ++i)
+      {
+        for(j = 1; j < n + 1; ++j)
+        {
+          int idx = i*(n+2) + j;
+          y[idx] = 0.25*(h*h + x[idx+1] + x[idx-1] + x[idx+n+2] + x[idx-n-2]);
+        }
+      }
+    }
+    else
+    {
+  #pragma omp for collapse(2)
+      for(i = 1; i < n + 1; ++i)
+      {
+        for(j = 1; j < n + 1; ++j)
+        {
+          int idx = i*(n+2) + j;
+          x[idx] = 0.25*(h*h + y[idx+1] + y[idx-1] + y[idx+n+2] + y[idx-n-2]);
+        }
+      } 
+    }
+
+
+    // error calculation
+    if(iter%2==1)
+    {
+  #pragma omp for collapse(2) reduction (+:err)
+      for(i = 1; i < n +1; ++i)
+      {
+        for(j = 1; j < n + 1; ++j)
+        {
+          double diff;
+          int idx = i*(n+2) + j;
+          diff = (4*y[idx] - y[idx+1] -y[idx-1] -y[idx+n+2] -y[idx-n-2])/h/h - 1;
+          err = err + diff*diff;
+        }
+      } 
+    }
+    else
+    {
+  #pragma omp for collapse(2) reduction (+:err)
+      for(i = 1; i < n +1; ++i)
+      {
+        for(j = 1; j < n + 1; ++j)
+        {
+          double diff;
+          int idx = i*(n+2) + j;
+          diff = (4*x[idx] - x[idx+1] -x[idx-1] -x[idx+n+2] -x[idx-n-2])/h/h - 1;
+          err = err + diff*diff;
+        }
+      }
+    }
+
+  #pragma omp single
+  {
+    err = sqrt(err);
+    ++iter;
+    if(iter==1)
+      tol = reltol*err;
+  }
+  if(iter>=maxiter || err < tol)
+    break;
+  #pragma omp barrier
+
+
+  }
+
+}
+
+
+  //printf("jacobi seq %d, original error: %f, final error: %f, iteration: %d\n", n, tol/reltol, err, iter);
+  printf("jacobi omp, size: %d, iteration: %d\n", n, iter);
 
   if(iter%2==1)
     memcpy(u, y, sizeof(double)*(n+2)*(n+2));

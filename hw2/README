@@ -1,0 +1,7 @@
+Spring 2019
+Advanced Topics in Numerical Analysis: High Performance Computing
+Assignment 2
+yr780
+
+On CIMS's machine, before make, please load the latest gcc compiler as follows.
+module load gcc-8.2
