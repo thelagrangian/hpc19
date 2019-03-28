@@ -26,7 +26,7 @@ void scan_omp(long* prefix_sum, const long* A, long n) {
   int length      = (n + num_threads - 1)/num_threads;
   int beginidx    = length * tid;
   int endidx      = beginidx + length;
-  int correction  = 0;
+  long correction  = 0;
 
   //printf("%d/%d\n", tid, num_threads);
 
@@ -71,7 +71,7 @@ int main() {
 
   long err = 0;
   for (long i = 0; i < N; i++) err = std::max(err, std::abs(B0[i] - B1[i]));
-  printf("error = %d\n", err);
+  printf("error = %ld\n", err);
 
   free(A);
   free(B0);

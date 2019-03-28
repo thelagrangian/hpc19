@@ -1,0 +1,131 @@
+\documentclass[amsmath,amssymb]{revtex4}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage[amsmath,thmmarks]{ntheorem}
+\usepackage{graphicx}% Include figure files
+\usepackage{dcolumn}% Align table columns on decimal point
+\usepackage{bm}% bold math
+\usepackage{longtable}
+%\usepackage{slashbox}
+\usepackage[colorlinks]{hyperref}
+\setcounter{section}{-1}
+
+\begin{document}
+
+\title{Spring 2019: Advanced Topics in Numerical Analysis:\\
+High Performance Computing\\
+Assignment 3}
+\author{Yongyan Rao, yr780@nyu.edu}
+%\email{yr780@nyu.edu}
+\date{\today}
+\maketitle
+
+\section{\label{sec:sec0}CPU specification}
+The processors used in the experiment are located in one of Courant's servers, crunchy5.cims.nyu.edu, with the following specs. The server has $4$ AMD Opteron(TM) Processor 6272 processors, each processor has 8 cores, and each core supports 2 threads i.e., 2 virtual cores. Therefore, from the software point of view, the server has $4\times8\times2 = 64$ cores.
+\begin{longtable}{l l}
+    \hline 
+processor         &: 0 to 63\\ \hline
+vendor\_id	&: AuthenticAMD \\ \hline
+cpu family	&: 21\\ \hline
+model		&: 1\\ \hline
+model name	&: AMD Opteron(TM) Processor 6272\\ \hline
+stepping	&: 2\\ \hline
+microcode	&: 0x600063e\\ \hline
+cpu MHz		&: 2100.039\\ \hline
+cache size	&: 2048 KB\\ \hline
+physical id	&: 0 to 3\\ \hline
+siblings	&: 16\\ \hline
+core id		&: 0 to 7\\ \hline
+cpu cores	&: 8\\ \hline
+apicid		&: {\it omitted}\\ \hline
+initial apicid	&: {\it omitted}\\ \hline
+fpu		&: yes\\ \hline
+fpu\_exception	&: yes\\ \hline
+cpuid level	&: 13\\ \hline
+wp		&: yes\\ \hline
+flags		&: {\it omitted}\\ \hline
+bogomips	&: 4200.07, 4199.44, 4199.47, 4199.45\\ \hline
+TLB size	&: 1536 4K pages\\ \hline
+clflush size	&: 64\\ \hline
+cache\_alignment	&: 64\\ \hline
+address sizes	&: 48 bits physical, 48 bits virtual\\ \hline
+power management&: {\it omitted}\\ \hline
+\caption{CPU specs.}
+\end{longtable}
+
+\section{\label{sec:sec1}1. Approximating Special Functions Using Taylor Series \& Vectorization}
+Both {\tt sin4\_intrin()} and {\tt sin4\_vec()} functions have been updated to achieve 12-digit accuracy.
+
+One can also implement fast sine function with argument whose magnitude is greater than $\frac{\pi}{4}$. Assume $x\in \mathbb{R}$, there always exist $k\in \mathbb{Z}$ and $-\frac{\pi}{4}\le\theta\le\frac{\pi}{4}$, such that $x = \theta + \frac{\pi}{2}k$. Therefore, $\sin{x} = \sin{(\theta +\frac{\pi}{2}k)}$
+\begin{equation}
+=
+\begin{cases}
+  \sin{\theta}& {\rm when~}k\equiv0\pmod 4,\\
+  \cos{\theta}& {\rm when~}k\equiv1\pmod 4,\\
+  -\sin{\theta}& {\rm when~}k\equiv2\pmod 4,\\
+  -\cos{\theta}& {\rm when~}k\equiv3\pmod 4.\\
+\end{cases}
+\end{equation}
+It indicates that to have a complete implementation of fast sine function, sine and cosine functions need to be implemented together. Cosine function can be approximated by the following Taylor sum to achieve the same accuracy.
+\begin{equation}
+\cos{x} = 1 - \frac{1}{2}x^2 + \frac{1}{4\cdot3\cdot2}x^4 - \frac{1}{6\cdot5\cdot4\cdot3\cdot2}x^6 + \frac{1}{8\cdot7\cdot6\cdot5\cdot4\cdot3\cdot2}x^8 - \frac{1}{10\cdot9\cdot8\cdot7\cdot6\cdot5\cdot4\cdot3\cdot2}x^{10}, \mid x\mid\le\frac{\pi}{4}.
+\end{equation}
+The complete implementation is not included in the code submission.
+
+\section{\label{sec:sec2}2. Parallel Scan in OpenMP}
+The server used in the experiment has $4$ AMD Opteron(TM) Processor 6272 processors, each processor has 8 cores, and each core supports 2 threads i.e., 2 virtual cores. Therefore, from the software point of view, the server has $4\times8\times2 = 64$ cores. Experiments were conducted to find the relation between speedup and the number of threads. Six (6) sets of experiments were conducted with the following numbers of threads, 2, 4, 8, 16, 32, and 64. For each set, the number of threads was fixed, and the experiments were repeated five (5) times. The relation between average speedup and the number of threads is represented as below, and the original experiment results are also attached.
+
+\begin{longtable}{c | c | c | c | c | c | c }
+    \hline 
+Num. of threads& 2 & 4 & 8 & 16 & 32 & 64  \\ \hline \hline
+Speedup		&3.420	&6.105 &	7.777 & 7.649 & 7.880 & 7.575\\\hline
+\caption{Average speedup versus number of threads.}
+\end{longtable}
+
+From the result above, one can conclude that for problem size $N = 100,000,000$, the program's performance does not improve significantly with the increase of number of threads after the number is greater than 8.
+
+\begin{longtable}{c| c | c }
+    \hline 
+     Num. of threads & OpenMP time (second) & Sequential time (second)   \\ \hline \hline
+2	&0.323469	&1.137197	\\\hline
+2	&0.344838	&1.136338	\\\hline
+2	&0.325571	&1.139111	\\\hline
+2	&0.344009	&1.136943	\\\hline
+2	&0.325147	&1.137792	\\\hline
+
+4	&0.190642	&1.137009	\\\hline
+4	&0.180924	&1.136997	\\\hline
+4	&0.190120	&1.137396	\\\hline
+4	&0.179606	&1.139102	\\\hline
+4	&0.190271	&1.136423	\\\hline
+
+8	&0.134885	&1.137976	\\\hline
+8	&0.171541	&1.137122	\\\hline
+8	&0.132695	&1.139145	\\\hline
+8	&0.173160	&1.136448	\\\hline
+8	&0.119127	&1.137515	\\\hline
+
+16	&0.164737	&1.139703	\\\hline
+16	&0.124929	&1.137433	\\\hline
+16	&0.167803	&1.137495	\\\hline
+16	&0.123704	&1.136592	\\\hline
+16	&0.162812	&1.139350	\\\hline
+
+32	&0.131675	&1.139518	\\\hline
+32	&0.163054	&1.137547	\\\hline
+32	&0.132328	&1.139154	\\\hline
+32	&0.164675	&1.136779	\\\hline
+32	&0.130386	&1.137027	\\\hline
+
+64	&0.157351	&1.139402	\\\hline
+64	&0.160024	&1.137056	\\\hline
+64	&0.137521	&1.138797	\\\hline
+64	&0.140094	&1.138478	\\\hline
+64	&0.156504	&1.138708	\\\hline
+\caption{Time measures (second) for parallel and sequential scanning.}
+\end{longtable}
+
+
+
+
+\end{document}
