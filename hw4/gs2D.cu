@@ -289,7 +289,7 @@ void gs_cuda(int n, double h, double*u, double reltol, int maxiter)
 int main()
 {
   int n = 4;//16;
-  int iter = 6;
+  int iter = 7;
   int nthreads;
   int titer = 5;
   int i, j;
@@ -311,7 +311,7 @@ int main()
       gs_omp(n,h,u,1.0e-12,10000,nthreads);
       clock_gettime(CLOCK_MONOTONIC, &end);
       timespent = timelapse(&start, &end);
-      printf(" time: %f\n", timespent);
+      printf(" time: %f, no threads: %d\n", timespent, nthreads);
       free(u);
     }
 

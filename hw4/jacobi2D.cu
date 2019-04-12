@@ -223,7 +223,7 @@ void jacobi_omp(int n, double h, double*u, double reltol, int maxiter, int nthre
     ++iter;
 
 
-#pragma omp parallel num_threads(1)//num_threads(nthreads)
+#pragma omp parallel num_threads(nthreads)
 {
 
     // point-wise calculation
@@ -423,7 +423,7 @@ void jacobi_cuda(int n, double h, double*u, double reltol, int maxiter)
 int main()
 {
   int n = 4;//16;
-  int iter = 6;
+  int iter = 7;
   int nthreads;
   int titer = 5;
   int i, j;
