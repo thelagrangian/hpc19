@@ -146,7 +146,7 @@ double dotproduct_gpu(double*a, double*b, int n)
 int main()
 {
   double *a, *b;
-  int n = 60000000;
+  int n = 40000000;
   a = (double*)aligned_alloc(sizeof(double), n*sizeof(double));
   b = (double*)aligned_alloc(sizeof(double), n*sizeof(double));
   srand(time(NULL));
