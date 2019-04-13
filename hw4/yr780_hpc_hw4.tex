@@ -1,0 +1,81 @@
+\documentclass[amsmath,amssymb]{revtex4}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage[amsmath,thmmarks]{ntheorem}
+\usepackage{graphicx}% Include figure files
+\usepackage{dcolumn}% Align table columns on decimal point
+\usepackage{bm}% bold math
+\usepackage{longtable}
+%\usepackage{slashbox}
+\usepackage[colorlinks]{hyperref}
+%\setcounter{section}{-1}
+
+\begin{document}
+
+\title{Spring 2019: Advanced Topics in Numerical Analysis:\\
+High Performance Computing\\
+Assignment 4}
+\author{Yongyan Rao, yr780@nyu.edu}
+%\email{yr780@nyu.edu}
+\date{\today}
+\maketitle
+
+
+\section{\label{sec:sec1}1. Matrix-vector operations on a GPU}
+There are two (2) source files for this part of the assignment, {\tt dotproduct.cu} and {\tt matrixarray.cu}, where
+\begin{itemize}
+\item {\tt dotproduct.cu} uses the same reduction technique as shown on lecture. The program outputs benchmark cpu memory bandwidth, gpu memory bandwidth, and error checksum, which is supposed to be zero.
+\item {\tt matrixarray.cu} implements two (2) gpu matrix-array multiplication algorithms. The first algorithm iteratively calls the dot product algorithm above for each element of the resultant column array, which implies the number of kernel launch equals the length of the resultant column array. The second algorithm generalizes the dot product algorithm to deal with matrix-array multiplication, which only involves one (1) kernel launch. The program outputs benchmark cpu memory bandwidth, gpu memory bandwidths of both gpu algorithms, and error checksum, which is supposed to be zero.
+\item Note: The tiling technique has not been implemented in either of matrix-array multiplication algorithms.
+\end{itemize}
+By running the dot product program with array length $40,000,000$, the gpu memory bandwidths of different CIMS cuda/HPC servers were measured as below.
+\begin{longtable}{c | c | c | c | c | c }
+    \hline 
+GB/s & cuda1 & cuda2 & cuda3 & cuda4 & prince.hpc \\ \hline \hline
+gpu mem bwidth&9034.814505	&8581.272870  &	8731.837179 & 7993.808792 & 11943.631736 \\\hline
+\caption{Measured GPU memory bandwidth with dot product program.}
+\end{longtable}
+By running the matrix-array multiplication program with matrix size $4096\times4096$, the gpu memory bandwidths of different CIMS cuda/HPC servers were measured as below.
+\begin{longtable}{c | c | c | c | c | c }
+    \hline 
+GB/s & cuda1 & cuda2 & cuda3 & cuda4 & prince.hpc \\ \hline \hline
+gpu mem bwidth&12050.457589&13396.328303  &	8389.654332 & 9195.197950  & 10879.697128 \\\hline
+\caption{Measured GPU memory bandwidth with matrix-array multiplication program.}
+\end{longtable}
+
+
+
+\section{\label{sec:sec2}2. 2D Jacobi/Gauss-Seidel method on a GPU}
+Jacobi and Gauss-Seidel methods are implemented in {\tt jacobi2D.cu} and {\tt gs2D.cu}. The measured running time, in second, are as below. With criterion of $10^{-12}$, the program converges with program sizes of 8, 16, 32 for both methods.
+
+Since the time measurements for cuda2 and cuda5 have large deviation from other measurements, they are not included in the report.
+
+\begin{longtable}{c | c | c | c | c | c | c}
+    \hline 
+Problem size & Iteration & cuda1 & cuda2 & cuda3 & cuda4 & prince.hpc \\ \hline \hline
+8 &445 (converged)&0.170740&  &	 & 0.214567  & 0.177690 \\\hline
+16 &1604 (converged)&0.130784&  &	 & 0.124692  & 0.045873 \\\hline
+32 &6061 (converged)&0.364076&  &	 & 0.479841  & 0.219584 \\\hline
+64 &10000&0.583012&  &	 & 0.787111  & 0.350558 \\\hline
+128 &10000&0.855489&  &	 & 1.181339  & 0.337275 \\\hline
+256 &10000&1.652488&  & & 2.028841  & 0.803859 \\\hline
+512 &10000&5.256030&  &	 & 5.705112  & 2.045001 \\\hline
+\caption{Measured running time (second) of Jacobi method with various problem sizes.}
+\end{longtable}
+
+\begin{longtable}{c | c | c | c | c | c | c}
+    \hline 
+Problem size& Iteration & cuda1 & cuda2 & cuda3 & cuda4 & prince.hpc \\ \hline \hline
+8 &223 (converged)&0.236399&  &	 & 0.192145  &0.254958 \\\hline
+16 &803 (converged)&0.049769&  &	 & 0.046028  & 0.025787 \\\hline
+32 &3030 (converged)&0.255253&  &	 & 0.341801  & 0.119098 \\\hline
+64 &10000&0.769859&  &	 & 1.001375  & 0.390373 \\\hline
+128 &10000&0.978273&  &	 & 1.372776  & 0.389126 \\\hline
+256 &10000&2.024581&  &	 & 2.251958  & 0.893564 \\\hline
+512 &10000&6.426221&  & & 6.983220  & 2.237247 \\\hline
+\caption{Measured running time (second) of Gauss-Seidel method with various problem sizes.}
+\end{longtable}
+
+\section{\label{sec:sec3}3. Final Project}
+I would like to work on matrix decomposition using GPU, and will update the teammate information.
+\end{document}
