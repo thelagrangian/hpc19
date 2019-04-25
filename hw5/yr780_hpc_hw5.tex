@@ -1,0 +1,53 @@
+\documentclass[amsmath,amssymb]{revtex4}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage[amsmath,thmmarks]{ntheorem}
+\usepackage{graphicx}% Include figure files
+\usepackage{dcolumn}% Align table columns on decimal point
+\usepackage{bm}% bold math
+\usepackage{longtable}
+%\usepackage{slashbox}
+\usepackage[colorlinks]{hyperref}
+%\setcounter{section}{-1}
+
+\begin{document}
+
+\title{Spring 2019: Advanced Topics in Numerical Analysis:\\
+High Performance Computing\\
+Assignment 5}
+\author{Yongyan Rao, yr780@nyu.edu}
+%\email{yr780@nyu.edu}
+\date{\today}
+\maketitle
+
+
+\section{\label{sec:sec1}1. MPI ring communication}
+The integer ring for measuring latency and the array ring for measuring bandwidth are coded in two (2) separate files, {\tt int\_ring.c} and {\tt array\_ring.c}.
+\begin{itemize}
+\item Measured on crunchy3, with 20 processes, the time latency is $0.000644$ ms.
+\item Measured between crunchy1 and crunchy3, with 20 processes, the time latency is $0.005395$ ms.
+\item Measured on crunchy3, with 20 processes, the network bandwidth is $5.880489\times10^{-2}$ GB/s.
+\item Measured between crunchy1 and crunchy3, with 20 processes, the network bandwidth is $3.325312\times10^{-2}$ GB/s.
+\end{itemize}
+
+
+\section{\label{sec:sec2}2. Final project}
+\begin{center}
+  \begin{tabular}{|c|p{10cm}|p{3cm}|}
+    \hline
+    \multicolumn{3}{|c|}{\bf Project: Implementing FFT} \\
+    \hline
+    Week & Work & Who  \\ \hline \hline
+    04/15-04/21 & Literature research on FFT and its algorithms & Yongyan Rao \\ \hline
+    04/22-04/28 & Further literature research, implemented a sequential version of FFT, checked the correctness by comparing with GSL library & Yongyan Rao \\ \hline
+    04/29-05/05 &  & Yongyan Rao\\ \hline
+    05/06-05/12 &  & Yongyan Rao \\ \hline
+    05/13-05/19 &   & Yongyan Rao \\ \hline
+  \end{tabular}
+  \end{center}
+
+
+
+
+
+\end{document}
