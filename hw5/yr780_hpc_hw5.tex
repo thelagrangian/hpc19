@@ -22,7 +22,9 @@ Assignment 5}
 
 
 \section{\label{sec:sec1}1. MPI ring communication}
-The integer ring for measuring latency and the array ring for measuring bandwidth are coded in two (2) separate files, {\tt int\_ring.c} and {\tt array\_ring.c}.
+The integer ring for measuring latency and the array ring for measuring bandwidth are implemented in two (2) separate files, {\tt int\_ring.c} and {\tt array\_ring.c}.
+
+Note: In the implementation of the array ring (for measuring bandwidth), the operation of adding process rank is only applied to the first element (with index 0) of the array, rather than the entire array. The operation, on one hand, helps error check, and on the other hand, avoids the additional iteration over each element of the array.
 \begin{itemize}
 \item Measured on crunchy3, with 20 processes, the time latency is $0.000644$ ms.
 \item Measured between crunchy1 and crunchy3, with 20 processes, the time latency is $0.005395$ ms.
