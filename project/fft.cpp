@@ -128,6 +128,7 @@ void fft_seq(complex_t* x, complex_t*y, int n)
   {
     double theta = 2.0*pi/m;
     complex_t omega_m(fcos(theta), fsin(theta));
+    //complex_t omega_m(cos(theta), sin(theta));
     for(k = 0; k < n; k += m)
     {
       complex_t omega(1.0, 0.0);
@@ -149,7 +150,8 @@ void fft_omp(complex_t* x, complex_t*y, int n)
   int i, m, k, j;
 #pragma omp parallel private(i,m,k,j)
 {
-  //printf("%d\n", omp_get_num_threads());
+  if(n==8 && omp_get_thread_num()==0)
+    printf("omp number of threads: %d\n", omp_get_num_threads());
   int bits = (int)log2((double)n);
 
 #pragma omp for
@@ -161,6 +163,7 @@ void fft_omp(complex_t* x, complex_t*y, int n)
   {
     double theta = 2.0*pi/m;
     complex_t omega_m(fcos(theta), fsin(theta));
+    //complex_t omega_m(cos(theta), sin(theta));
   #pragma omp for
     for(k = 0; k < n; k += m)
     {
@@ -194,11 +197,13 @@ int main()
     double    *x0 = (double*)malloc(2*n*sizeof(double));
     complex_t *x1 = (complex_t*)malloc(n*sizeof(complex_t));
     complex_t *y1 = (complex_t*)malloc(n*sizeof(complex_t));
+    complex_t *x2 = (complex_t*)malloc(n*sizeof(complex_t));
+    complex_t *y2 = (complex_t*)malloc(n*sizeof(complex_t));
 
     for(i = 0; i < n ; ++i)
     {
-      x1[i].r = x0[2*i]  = (double)rand()/RAND_MAX - 0.5;
-      x1[i].i = x0[2*i+1]= (double)rand()/RAND_MAX - 0.5;
+      x1[i].r = x2[i].r = x0[2*i]  = (double)rand()/RAND_MAX - 0.5;
+      x1[i].i = x2[i].i = x0[2*i+1]= (double)rand()/RAND_MAX - 0.5;
     }
 
 
@@ -209,13 +214,18 @@ int main()
     printf("problem size: %d, omp: %f\n", n, timeint);
 
     clock_gettime(CLOCK_MONOTONIC, &t0);
+    fft_seq(x2, y2, n);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    timeint = (t1.tv_sec + t1.tv_nsec/1e9) - (t0.tv_sec + t0.tv_nsec/1e9);
+    printf("problem size: %d, seq: %f\n", n, timeint);
+
+    clock_gettime(CLOCK_MONOTONIC, &t0);
     fft_gsl(x0, n);
     clock_gettime(CLOCK_MONOTONIC, &t1);
     timeint = (t1.tv_sec + t1.tv_nsec/1e9) - (t0.tv_sec + t0.tv_nsec/1e9);
     printf("problem size: %d, gsl: %f\n", n ,timeint);
 
 
-    /*
     for(i = 0; i < n; ++i)
     {
       if(fabs(1.0 - y1[i].r/x0[2*i]) > 1e-3)
@@ -223,11 +233,12 @@ int main()
       if(fabs(1.0 - y1[i].i/x0[2*i + 1]) > 1e-3 )
         printf("%d, i: %8e, %8e\n", i, y1[i].i, x0[2*i + 1]);
     }
-    */
 
     free(x0);
     free(x1);
     free(y1);
+    free(x2);
+    free(y2);
   }
   return 0;
 }
