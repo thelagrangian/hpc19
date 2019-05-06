@@ -77,7 +77,7 @@ double fsin(double x)
   if(x <= -0.75*pi)
     return -fsin(x + pi); 
   else if(-0.75*pi < x && x <= -0.25*pi)
-    return -fcos(x = 0.5*pi);
+    return -fcos(x + 0.5*pi);
   else if(-0.25*pi < x && x <=  0.25*pi)
   { 
     double x1 = x;
