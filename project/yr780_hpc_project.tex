@@ -1,0 +1,258 @@
+\documentclass[amsmath,amssymb]{revtex4}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage[amsmath,thmmarks]{ntheorem}
+\usepackage{graphicx}% Include figure files
+%\usepackage{caption}
+%\usepackage{subcaption}
+\usepackage{dcolumn}% Align table columns on decimal point
+\usepackage{bm}% bold math
+\usepackage{longtable}
+%\usepackage{slashbox}
+\usepackage[colorlinks]{hyperref}
+%\setcounter{section}{-1}
+\usepackage{pgfplots}
+%\usepackage{caption}
+%\usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{plotmarks}
+
+\usepackage{listings}
+\usepackage{xcolor} % for setting colors
+
+
+% set the default code style
+\lstset{
+    frame=tb, % draw a frame at the top and bottom of the code block
+    tabsize=4, % tab space width
+    showstringspaces=true, % don't mark spaces in strings
+    numbers=left, % display line numbers on the left
+    commentstyle=\color{green}, % comment color
+    keywordstyle=\color{blue}, % keyword color
+    stringstyle=\color{red}, % string color
+    %basicstyle=\footnotesize,
+    basicstyle=\ttfamily\footnotesize,
+}
+
+
+
+\begin{document}
+
+\title{Spring 2019: Advanced Topics in Numerical Analysis High Performance Computing\\
+Implementation of Fast Fourier Transform (FFT)}
+\author{Yongyan Rao, yr780@nyu.edu}
+%\email{yr780@nyu.edu}
+\date{\today}
+\maketitle
+
+
+\section{\label{sec:sec0}0. Introduction}
+
+The Fourier transform of a function $f: \mathbb{R}\to\mathbb{C}$ is defined as
+\begin{equation}
+\hat{f}(k)=\int^{\infty}_{-\infty}f(x)e^{-2\pi ixk}dx.
+\end{equation}
+And the inverse Fourier transform is defined as
+\begin{equation}
+f(x)=\int^{\infty}_{-\infty}\hat{f}(k)e^{2\pi ixk}dk.
+\end{equation}
+The discrete Fourier transform (DFT) of a sequence of $N$ complex numbers $\{x_0, x_1, \cdots, x_{N-1}\}$ is defined as
+\begin{equation}
+y_k = \sum^{N-1}_{n=0}x_ne^{-\frac{2\pi i}{N}kn}, k = 0, 1, \cdots, N-1.
+\end{equation}
+From the definition, we can find that a straightforward implementation of DFT is of complexity of $\mathcal{O}(N^2)$. By observing and preserving the underlying symmetry of DFT, a fast Fourier transform (FFT) algorithm is able to reduce the complexity to $\mathcal{O}(N\log N)$, without losing any accuracy.
+
+The most commonly used FFT algorithm is the Cooley-Tukey algorithm, which uses the divide and conquer paradigm that recursively factorizes $N$ and applies the transform on a lower scale. To simplify the discussion, we only consider the radix-2 FFT, which means $N$ is a power of 2, i.e., $N=2^l, l\in\mathbb{N}$. The radix-2 FFT can be derived as follows.
+\begin{equation*}
+\begin{aligned} 
+y_k\equiv y_{k,0,1} &= \sum^{N-1}_{n=0}x_ne^{-\frac{2\pi i}{N}kn} = \sum^{N-1}_{{\rm even}~n=0}x_ne^{-\frac{2\pi i}{N}kn} + \sum^{N-1}_{{\rm odd}~n=0}x_ne^{-\frac{2\pi i}{N}kn}\\
+&= \sum^{\frac{N}{2}-1}_{n=0}x_{2n}e^{-\frac{2\pi i}{N}k(2n)} + \sum^{\frac{N}{2}-1}_{n=0}x_{2n+1}e^{-\frac{2\pi i}{N}k(2n+1)}\\
+&= \sum^{\frac{N}{2}-1}_{n=0}x_{2n}e^{-\frac{2\pi i}{N/2}kn} + e^{-\frac{2\pi i}{N}k}\sum^{\frac{N}{2}-1}_{n=0}x_{2n+1}e^{-\frac{2\pi i}{N/2}kn}\\
+&=y_{k,0,2} + e^{-\frac{2\pi i}{N}k}y_{k,1,2},
+\end{aligned} 
+\end{equation*}
+where $y_{k,i,j}$ represents the $k$-th term of the transform of $x_n$, using summation beginning from $i$-th term with stride $j$. The recurrence relation of $y$ can be written as
+\begin{equation*}
+\begin{aligned} 
+y_{k,0,1} &= y_{k,0,2} + e^{-\frac{2\pi i}{N}k}y_{k,1,2}\\
+                                &=y_{k,0,4} + e^{-\frac{2\pi i}{N}k}(y_{k,1,4}+y_{k,2,4})+e^{-2\frac{2\pi i}{N}k}y_{k,3,4}=\cdots.\\
+\end{aligned} 
+\end{equation*}
+
+Therefore, it is straightforward to implement the FFT algorithm in terms of recursion. However, since it is easier to parallelize iteration than recursion in OpenMP's paradigm, we use the iterative Cooley-Tukey algorithm in the discussion as follows.
+\begin{lstlisting}[language=C, caption={Iterative Cooley-Tukey algorithm for FFT}, label=list:list1]
+algorithm fft
+  //input: an array x of complex numbers of length $n$, with $n$ is a power of 2.
+  //output: an array y of complex numbers of length $n$, which is the FFT of x.
+  
+  y = bit-reverse(x);
+  
+  for(m = 2; m <= n; m *= 2)
+    theta = 2 * pi/m;
+    omega_m = exp(i * theta); //Euler's formula exp(i * theta) = cos(theta) + i * sin(theta)
+    for(k = 0; k < n; k += m)
+      omega = 1;
+      for(j = 0; j < m/2; ++j)
+        t = omega * y[k + j + m/2];
+        u = y[k + j];
+        y[k + j] = u + t;
+        y[k + j + m/2] = u - t;
+        omega = omega * omega_m;
+
+  return y;
+\end{lstlisting}
+
+\subsection{\label{subsec:subsec1.1}Note on the Bit Reverse function}
+In Listing \ref{list:list1}, we still need to further discuss the implementation details about the bit reverse function on line 5. The bit reverse is defined as reversing the bits in the binary representation of an unsigned integer. Therefore, after the bit reverse, the most significant bit becomes the least significant bit, and vice versa, the least significant bit becomes the most significant bit. For example, the bit reserve of an 8-bit unsigned integer $00000100_2(=4_{10})$ is $00100000_2(=32_{10})$. It is clear that for a $n$-bit unsigned integer $x$, calculating its bit reverse is of complex of $\log n$. If the number $n$ is fixed in the problem, the bit reverse function can be implemented as a lookup table. Otherwise, it needs to be implemented explicitly in the program. It is good to observe that the bit reversing of the sequence $0, 1, \cdots, 2^n-1$ is a permutation of the sequence, which implies that the bit reverse function can be fully parallelized.
+
+\section{\label{sec:sec1}1. Sequential implementation of FFT}
+We first implemented the sequential version of FFT, with $\mathcal{O}(n\log n)$ complexity.
+There are several points worth noticing as follows.
+\begin{enumerate}
+\item A fast implementation of sine and cosine functions is used, which covers the domain of $[-\pi, \pi]$. It is sufficient in term of the use of FFT.
+\item When the problem size is relatively large, there exists numerical discrepancy between the results of the implementation and the GNU Scientific Library (GSL). For example, when the problem size is 67,108,864, there are 48 such instances that the relative error of either the real or the imaginary part is greater than $10^{-3}$, and it always happens at the points where the absolute value of the result is small. It is very rare when the problem size is less than this scale. Furthermore, using sine and cosine functions from {\tt C} language's {\tt math.c} library does not remedy the discrepancy significantly.
+\end{enumerate}
+
+\section{\label{sec:sec2}2. OpenMP implementation of FFT}
+Although the algorithm above has been adapted to the form of iteration, it still keeps the trace of recursion, which means not all the iterations are independent. It is clear that the bit-reverse-copy function, line 5, has independent iterations, and the loop on line 10 has independent iterations. We can use OpenMP to parallel these portions of FFT. We compiled and ran the program {\tt fft.cpp} on cuda1.cims, which has 24 (virtual) cores. The followings are the time measures, FIG \ref{fig:fig1}, and the speedup of the OpenMP implementation, FIG \ref{fig:fig2}.
+
+The speedup measured is never greater than 5, given the program is run on a 24-core machine. The phenomenon is understandable in terms of Amdahl's law. The outermost and innermost loops, line 7 and line 12, respectively, in the algorithm are iteration dependent, which cannot be parallelized. They serialize a great portion of the program.
+
+\begin{figure}[h]
+  \centering
+  \begin{minipage}[b]{0.45\textwidth}
+
+\begin{tikzpicture}
+\begin{axis}[
+  legend pos=north west,
+  legend cell align=left,
+  xlabel=Problem size,
+  ylabel=Time (s),
+  xmode=log,
+  ymode=log,
+  ]
+  
+\addplot [mark=triangle, color=green, mark size=2pt]
+table {./plot/seq.data};
+\addlegendentry[font=\tiny]{sequential}
+
+\addplot [mark=square, color=red, mark size=2pt]
+table {./plot/gsl.data};
+\addlegendentry[font=\tiny]{gsl}
+
+\addplot [mark=o, color=blue, mark size=2pt]
+table {./plot/omp.data};
+\addlegendentry[font=\tiny]{omp}
+
+\end{axis}
+\end{tikzpicture}
+\caption{\label{fig:fig1}Running time of FFT implementations}
+\end{minipage}
+~
+\begin{minipage}[b]{0.45\textwidth}
+\begin{tikzpicture}
+\begin{axis}[
+  legend pos=north west,
+  legend cell align=left,
+  xlabel=Problem size,
+  ylabel=Speedup,
+  xmode=log,
+  %ymode=log,
+  ]
+  
+\addplot [mark=o, color=blue, mark size=2pt]
+table {./plot/speedup.data};
+\addlegendentry[font=\tiny]{speedup: sequential/omp}
+
+\end{axis}
+\end{tikzpicture}
+\caption{\label{fig:fig2}Speedup of OpenMP FFT}
+\end{minipage}
+\end{figure}
+
+
+\section{\label{sec:sec3}3. cuda implementation of FFT}
+A straightforward implementation of cuda FFT is coded and tested. There are several points worth mentioning as follows.
+\begin{enumerate}
+\item In the implementation, memory copy happens twice. One is copying input from host to device before the first kernel launch, and the other is copying output from device to host after the last kernel run.
+\item Due to the distribution of the parallelizable regions, the line 5 function and the line 10 loop, two kernels are implemented, and two parts of kernel launches happen in the program execution. The first kernel is used as the bit reverse function, which only needs to be launched once, i.e., the first part of kernel launch. The second kernel is used for the parallel computing of the loop in line 10.
+\item Because the line 10 loop is nested in the outermost loop in line 7, the second kernel needs to be launched multiple times, proportional to $\log n$, the logarithm of the problem size. 
+\item The program was complied and run on cuda1.cims, and we noticed that to run properly, the greatest problem size the program accepted was 4,194,304. There exist four (4) {\tt double} arrays in device memory during a kernel run, with two (2) input arrays and two (2) output arrays. Two components for either the input or the output represent the real part and the imaginary part of a complex number respectively. Therefore, for a problem of size $n$, it needs $8\times4\times n$ byte device memory, which means a problem size 4,194,304 corresponds to 134 MB device memory. The device memory was measured during the program run, which showed that the device's total memory was 2,084 MB and free memory was 1,702 MB. Therefore, it was not due to device memory limit. But instead, it was due to cuda's limit on the number of blocks per grid. If the program size is 8,388,608, and each block has 512 threads, then a kernel would need 16,384 blocks in a grid, which excesses the limit of underlying architecture.
+\item The performance of the cuda implementation was measured and presented in FIG \ref{fig:fig3} and FIG \ref{fig:fig4}. We could notice that from the measurement that the cuda implementation always took longer time than the original sequential implementation. The best relative performance of the cuda implementation was only about $\frac{1}{2}$ of the performance of the sequential implementation.
+\item It is not a very great surprise for the cuda implementation to have such performance. As discussed above, the iterative Cooley-Tukey algorithm is not fully parallelizable. This fact has the following implications.
+\begin{enumerate}
+\item The second kernel needs to be launched multiple times, $\mathcal{O}(\log n)$. Furthermore, in the first iterations, when $m$ is small, the kernel is less operations to execute in each launch, which makes it more memory bounded.
+\item The memory access pattern for the iterations in line 10 makes it difficult to fully exploit the coalesced memory access. This is because when $m$ is large, the threads next to each other are actually trying to access memory locations that are with $m$ locations apart from each other, which means combining multiple memory accesses into a single transaction is impossible in the situation.
+\item Shared memory
+\end{enumerate}
+\end{enumerate}
+
+\begin{figure}[h]
+  \centering
+  \begin{minipage}[b]{0.45\textwidth}
+
+\begin{tikzpicture}
+\begin{axis}[
+  legend pos=north west,
+  legend cell align=left,
+  xlabel=Problem size,
+  ylabel=Time (s),
+  xmode=log,
+  ymode=log,
+  ]
+
+
+\addplot [mark=square, color=red, mark size=2pt]
+table {./plot/cudaseq.data};
+\addlegendentry[font=\tiny]{sequential}
+
+\addplot [mark=o, color=blue, mark size=2pt]
+table {./plot/cuda.data};
+\addlegendentry[font=\tiny]{cuda}
+
+\end{axis}
+\end{tikzpicture}
+\caption{\label{fig:fig3}Running time of FFT implementations}
+\end{minipage}
+~
+\begin{minipage}[b]{0.45\textwidth}
+\begin{tikzpicture}
+\begin{axis}[
+  legend pos=north west,
+  legend cell align=left,
+  xlabel=Problem size,
+  ylabel=Speedup,
+  xmode=log,
+  ymode=log,
+  ]
+  
+\addplot [mark=o, color=blue, mark size=2pt]
+table {./plot/cudaspeedup.data};
+\addlegendentry[font=\tiny]{speedup: sequential/cuda}
+
+\end{axis}
+\end{tikzpicture}
+\caption{\label{fig:fig4}Speedup of cuda FFT}
+\end{minipage}
+\end{figure}
+
+
+
+
+
+\medskip
+
+\begin{thebibliography}{9}
+
+\bibitem{omp} 
+OpenMP, \url{https://www.openmp.org/}.
+
+\bibitem{gccomp} 
+{\tt gcc/libgomp/}, \url{https://github.com/gcc-mirror/gcc/tree/master/libgomp}.
+
+
+\end{thebibliography}
+
+
+
+\end{document}

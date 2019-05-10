@@ -7,7 +7,7 @@ CUDA_INCDIR = -I $(CUDA_HOME)/include -I $(CUDA_HOME)/samples/common/inc
 CUDA_LIBS = -lblas -L${CUDA_HOME}/lib64 -lcudart -lcublas
 
 NVCC = nvcc
-NVCCFLAGS  = -Xcompiler "-O3 -fopenmp"
+NVCCFLAGS  = -arch=sm_52 -Xcompiler "-O3 -fopenmp"
 #NVCCFLAGS = -std=c++11
 #NVCCFLAGS += -Xcompiler "-O3 -march=native -fopenmp" # pass -fopenmp to host compiler (g++)
 #NVCCFLAGS += --gpu-architecture=compute_35 --gpu-code=compute_35

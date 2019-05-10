@@ -212,7 +212,7 @@ void ftt_cuda(double* xr, double*xi, double*yr, double*yi, int n)
   cudaFree(yi_d);
 
   cudaMemGetInfo(&memfree, &memtotal);
-  printf("free mem: %d, total mem: %d\n", memfree, memtotal);
+  //printf("free mem: %d, total mem: %d\n", memfree, memtotal);
 }
 
 void fft_seq(complex_t* x, complex_t*y, int n)

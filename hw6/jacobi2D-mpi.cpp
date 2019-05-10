@@ -70,6 +70,8 @@ int main(int argc, char * argv[]){
     printf("Exiting. problem size edge must be a multiple of process edge\n");
     MPI_Abort(MPI_COMM_WORLD, 0);
   }
+  //debug:
+  //printf("problem size edge: %d, process edge: %d\n", psize_edge, proc_edge);
   /* timing */
   MPI_Barrier(MPI_COMM_WORLD);
   double tt = MPI_Wtime();
@@ -94,6 +96,10 @@ int main(int argc, char * argv[]){
 
   for (iter = 0; iter < max_iters && gres/gres0 > tol; iter++) {
 
+    //debug:
+    //if(mpirank == 0)
+    //  printf("iter: %d\n", iter);
+
     /* Jacobi step for local points */
     for (i = 0; i < (lN + 2)*(lN + 2); i++){
       x = i/(lN + 2);
@@ -101,6 +107,9 @@ int main(int argc, char * argv[]){
       if(x != 0 && x != (lN + 1) && y != 0 && y != (lN + 1))
         lunew[i]  = 0.25 * (hsq + lu[i - 1] + lu[i + 1] + lu[i + lN + 2] + lu[i - lN - 2]);
     }
+
+    //if( mpirank ==0 )
+    //  printf("local calculation done\n");
 
     /* communicate ghost values */
     //if (mpirank < p - 1) {
@@ -116,6 +125,10 @@ int main(int argc, char * argv[]){
 
     int mpix = mpirank / proc_edge;
     int mpiy = mpirank % proc_edge;
+
+    //printf("%d, mpix: %d, mpiy: %d\n", mpirank, mpix, mpiy);
+
+
     if(mpix != 0)
     {
       MPI_Send(&lunew[lN + 2],        lN + 2, MPI_DOUBLE, mpirank - proc_edge, 123, MPI_COMM_WORLD);
@@ -123,9 +136,14 @@ int main(int argc, char * argv[]){
     }
     if(mpix != proc_edge - 1)
     {
-      MPI_Send(&lunew[lN*(lN+2)],     lN + 2, MPI_DOUBLE, mpirank + proc_edge, 124, MPI_COMM_WORLD);
       MPI_Recv(&lunew[(lN+1)*(lN+2)], lN + 2, MPI_DOUBLE, mpirank + proc_edge, 123, MPI_COMM_WORLD, &status);
+      MPI_Send(&lunew[lN*(lN+2)],     lN + 2, MPI_DOUBLE, mpirank + proc_edge, 124, MPI_COMM_WORLD);
+      //MPI_Recv(&lunew[(lN+1)*(lN+2)], lN + 2, MPI_DOUBLE, mpirank + proc_edge, 123, MPI_COMM_WORLD, &status);
     }
+
+
+   // if(mpirank == 0)
+   //   printf("communication 1 done\n");
 
     if(mpiy != 0)
     {
@@ -143,13 +161,16 @@ int main(int argc, char * argv[]){
       for(i = 0; i < lN + 2; ++i)
         tmpsend[i] = lunew[lN+i*(lN+2)];
 
-      MPI_Send(tmpsend,               lN + 2, MPI_DOUBLE, mpirank + 1,         124, MPI_COMM_WORLD);
       MPI_Recv(tmprecv,               lN + 2, MPI_DOUBLE, mpirank + 1,         123, MPI_COMM_WORLD, &status);
+      MPI_Send(tmpsend,               lN + 2, MPI_DOUBLE, mpirank + 1,         124, MPI_COMM_WORLD);
+      //MPI_Recv(tmprecv,               lN + 2, MPI_DOUBLE, mpirank + 1,         123, MPI_COMM_WORLD, &status);
 
       for(i = 0; i < lN + 2; ++i)
         lunew[lN+1+i*(lN+2)] = tmprecv[i];
     }
 
+    //if(mpirank == 0)
+    //  printf("communication 2 done\n");
 
     /* copy newu to u using pointer flipping */
     lutemp = lu; lu = lunew; lunew = lutemp;
