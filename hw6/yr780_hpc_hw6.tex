@@ -1,0 +1,159 @@
+\documentclass[amsmath,amssymb]{revtex4}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage[amsmath,thmmarks]{ntheorem}
+\usepackage{graphicx}% Include figure files
+\usepackage{dcolumn}% Align table columns on decimal point
+\usepackage{bm}% bold math
+\usepackage{longtable}
+%\usepackage{slashbox}
+\usepackage[colorlinks]{hyperref}
+%\setcounter{section}{-1}
+\usepackage{pgfplots}
+%\usepackage{caption}
+%\usepackage{subcaption}
+\usepackage{tikz}
+\usetikzlibrary{plotmarks}
+
+\usepackage{listings}
+\usepackage{xcolor} % for setting colors
+
+
+
+
+
+\begin{document}
+
+\title{Spring 2019: Advanced Topics in Numerical Analysis:\\
+High Performance Computing\\
+Assignment 6}
+\author{Yongyan Rao, yr780@nyu.edu}
+%\email{yr780@nyu.edu}
+\date{\today}
+\maketitle
+
+
+\section{\label{sec:sec0}0. Final project}
+\begin{center}
+  \begin{tabular}{|c|p{10cm}|p{3cm}|}
+    \hline
+    \multicolumn{3}{|c|}{\bf Project: Implementing FFT} \\
+    \hline
+    Week & Work & Who  \\ \hline \hline
+    04/15-04/21 & Literature research on FFT and its algorithms & Yongyan Rao \\ \hline
+    04/22-04/28 & Further literature research, implemented a sequential version of FFT, checked the correctness by comparing with GSL library & Yongyan Rao \\ \hline
+    04/29-05/05 & Implemented OpenMP version and naive cuda version of FFT & Yongyan Rao\\ \hline
+    05/06-05/12 & Ran tests on the implementations, and worked on report & Yongyan Rao \\ \hline
+    05/13-05/19 &   & Yongyan Rao \\ \hline
+  \end{tabular}
+  \end{center}
+
+
+\section{\label{sec:sec1}1. MPI-parallel two-dimensional Jacobi smoother}
+\subsection{\label{sec:sec1.1}Blocking version weak scaling study}
+The following study was conducted with the following parameters, $lN=100$, number of iterations $10$.
+\begin{center}
+  \begin{tabular}{c | c | c | c | c | c}
+    \hline
+Number of process(es) & 1  & 4 & 16 & 64 &256     \\ \hline
+Time            (second)    & 0.000687 & 0.000895 & 0.099191 & 0.064470 & 3.127207 \\ \hline
+  \end{tabular}
+\end{center}
+
+\begin{figure}[h]
+  
+  \centering
+\begin{tikzpicture}
+\begin{axis}[
+  legend pos=north west,
+  legend cell align=left,
+  xlabel=Problem size,
+  ylabel=Time (s),
+  xmode=log,
+  ymode=log,
+  ]
+
+
+\addplot [mark=o, color=blue, mark size=2pt]
+table {./plot/weak.plot};
+\addlegendentry[font=\tiny]{Running time}
+
+\end{axis}
+\end{tikzpicture}
+\caption{Weak scaling}
+\end{figure}
+
+
+\subsection{\label{sec:sec1.2}Blocking version strong scaling study}
+The following study was conducted with the following parameters, $N=\sqrt{10240000} = 3200$, number of iterations $10$.
+\begin{center}
+  \begin{tabular}{c | c | c | c | c | c}
+    \hline
+Number of process(es) & 1  & 4 & 16 & 64 &256     \\ \hline
+Time        (second)  & 0.673925 & 0.171769 & 0.085054 & 0.117849 & 3.683604 \\ \hline
+Speedup                        & 1 &3.923437873&7.923495662&5.718546615&0.182952619\\ \hline
+  \end{tabular}
+\end{center}
+
+\begin{figure}[h]
+  
+  \centering
+\begin{tikzpicture}
+\begin{axis}[
+  legend pos=north west,
+  legend cell align=left,
+  xlabel=Problem size,
+  ylabel=Time (s),
+  xmode=log,
+  ymode=log,
+  ]
+
+
+\addplot [mark=o, color=blue, mark size=2pt]
+table {./plot/strong.plot};
+\addlegendentry[font=\tiny]{speedup}
+
+\addplot [mark=o, color=red, mark size=2pt]
+table {./plot/ref.plot};
+\addlegendentry[font=\tiny]{Ideal speedup}
+
+\end{axis}
+\end{tikzpicture}
+\caption{Strong scaling}
+\end{figure}
+
+
+
+\subsection{\label{sec:sec1.3}Non-blocking version comparison}
+The same experiments were conducted using the non-blocking implementation.
+\begin{center}
+  \begin{tabular}{c | c | c | c | c | c}
+    \hline
+Number of process(es) & 1  & 4 & 16 & 64 &256     \\ \hline
+Blocking time (second)    & 0.000687 & 0.000895 & 0.099191 & 0.064470 & 3.127207 \\ \hline
+Non-blocking time (second) & 0.000673 & 0.000764&  0.020252& 0.042427 & 0.717789\\ \hline
+  \end{tabular}
+\end{center}
+
+\begin{center}
+  \begin{tabular}{c | c | c | c | c | c}
+    \hline
+Number of process(es) & 1  & 4 & 16 & 64 &256     \\ \hline
+Blocking time        (second)  & 0.673925 & 0.171769 & 0.085054 & 0.117849 & 3.683604 \\ \hline
+Non-blocking time (second) & 0.624653 & 0.160637& 0.066820 &  0.057231& 0.705940 \\ \hline
+  \end{tabular}
+\end{center}
+
+\section{\label{sec:sec2}2. Parallel sample sort}
+With setup, {\tt --nodes=8} and {\tt --ntasks-per-node=8}, 
+
+\begin{center}
+  \begin{tabular}{c | c | c | c }
+    \hline
+N & $10^4$  & $10^5$ & $10^6$    \\ \hline
+Time (second) & 0.802799 & 0.851473&  1.159685\\ \hline
+  \end{tabular}
+\end{center}
+
+
+\end{document}
