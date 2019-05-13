@@ -171,8 +171,12 @@ void ftt_cuda(double* xr, double*xi, double*yr, double*yi, unsigned long n)
   double*xr_d, *xi_d, *yr_d, *yi_d;
   //int i, m, k, j;
   unsigned long m;
-  size_t memfree, memtotal;
+  unsigned long memfree, memtotal;
   unsigned int bits = (unsigned int)log2((double)n);
+
+  cudaMemGetInfo(&memfree, &memtotal);
+  printf("free mem: %ld, total mem: %ld\n", memfree, memtotal);
+
   cudaMalloc(&xr_d, n*sizeof(double));
   cudaMalloc(&xi_d, n*sizeof(double));
   cudaMalloc(&yr_d, n*sizeof(double));
@@ -213,14 +217,13 @@ void ftt_cuda(double* xr, double*xi, double*yr, double*yi, unsigned long n)
   cudaFree(yr_d);
   cudaFree(yi_d);
 
-  cudaMemGetInfo(&memfree, &memtotal);
-  //printf("free mem: %d, total mem: %d\n", memfree, memtotal);
+
 }
 
 void fft_seq(complex_t* x, complex_t*y, unsigned long n)
 {
   unsigned long i, m, k, j;
-  unsigned int bits = (int)log2((double)n);
+  unsigned int bits = (unsigned int)log2((double)n);
   for(i = 0; i < n; ++i)
     y[bitrev(i, bits)] = x[i];
 
@@ -245,12 +248,12 @@ void fft_seq(complex_t* x, complex_t*y, unsigned long n)
   }
 }
 
-void fft_omp(complex_t* x, complex_t*y, int n)
+void fft_omp(complex_t* x, complex_t*y, unsigned long n)
 {
-  int i, m, k, j;
-#pragma omp parallel
+  unsigned long i, m, k, j;
+#pragma omp parallel private(i,m,k,j)
 {
-  int bits = (int)log2((double)n);
+  unsigned int bits = (unsigned int)log2((double)n);
 
 #pragma omp for
   for(i = 0; i < n; ++i)
@@ -284,7 +287,7 @@ void fft_omp(complex_t* x, complex_t*y, int n)
 
 int main()
 {
-  unsigned long size_limit = (1UL<<30);
+  unsigned long size_limit = (1UL<<29);
   unsigned long  n, i;
   struct timespec t0, t1;
   double timeint;

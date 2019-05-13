@@ -95,9 +95,9 @@ double fsin(double x)
 
 
 // from http://www.katjaas.nl/bitreversal/bitreversal.html
-unsigned int bitrev(unsigned int n, unsigned int bits)
+unsigned long bitrev(unsigned long n, unsigned int bits)
 {
-    unsigned int nrev, N;
+    unsigned long nrev, N;
     unsigned int count;   
     N = 1<<bits;
     count = bits-1;   // initialize the count variable
@@ -116,10 +116,10 @@ unsigned int bitrev(unsigned int n, unsigned int bits)
 }
 
 
-void fft_seq(complex_t* x, complex_t*y, int n)
+void fft_seq(complex_t* x, complex_t*y, unsigned long n)
 {
-  int i, m, k, j;
-  int bits = (int)log2((double)n);
+  unsigned long i, m, k, j;
+  unsigned int bits = (unsigned int)log2((double)n);
   for(i = 0; i < n; ++i)
     y[bitrev(i, bits)] = x[i];
 
@@ -145,14 +145,19 @@ void fft_seq(complex_t* x, complex_t*y, int n)
   }
 }
 
-void fft_omp(complex_t* x, complex_t*y, int n)
+void fft_omp(complex_t* x, complex_t*y, unsigned long n, int nthreads=-1)
 {
-  int i, m, k, j;
-#pragma omp parallel private(i,m,k,j)
+  unsigned long i, m, k, j;
+  unsigned int nt;
+
+  if(nthreads== -1)
+    nt = omp_get_num_procs();
+  else
+    nt = (unsigned int)nthreads;
+
+#pragma omp parallel private(i,m,k,j) num_threads(nt)
 {
-  if(n==8 && omp_get_thread_num()==0)
-    printf("omp number of threads: %d\n", omp_get_num_threads());
-  int bits = (int)log2((double)n);
+  unsigned int bits = (unsigned int)log2((double)n);
 
 #pragma omp for
   for(i = 0; i < n; ++i)
@@ -187,11 +192,15 @@ void fft_omp(complex_t* x, complex_t*y, int n)
 
 int main()
 {
-  int size_limit = (1<<27);
-  int n, i;
+  unsigned int size_limit = (1<<29);
+  unsigned int n, i;
   struct timespec t0, t1;
   double timeint;
   srand(time(NULL));
+
+  printf("num of cores: %d\n", omp_get_num_procs());
+
+  // correctness
   for(n = 8; n < size_limit; n *= 2)
   {
     double    *x0 = (double*)malloc(2*n*sizeof(double));
@@ -228,10 +237,10 @@ int main()
 
     for(i = 0; i < n; ++i)
     {
-      if(fabs(1.0 - y1[i].r/x0[2*i]) > 1e-3)
-        printf("%d, r: %8e, %8e\n", i, y1[i].r, x0[2*i]);
-      if(fabs(1.0 - y1[i].i/x0[2*i + 1]) > 1e-3 )
-        printf("%d, i: %8e, %8e\n", i, y1[i].i, x0[2*i + 1]);
+      if(fabs(1.0 - y2[i].r/x0[2*i]) > 1e-3)
+        printf("%15d, real: %8e(omp), %8e(gsl)\n", i, y1[i].r, x0[2*i]);
+      if(fabs(1.0 - y2[i].i/x0[2*i + 1]) > 1e-3 )
+        printf("%15d, imag: %8e(omp), %8e(gsl)\n", i, y1[i].i, x0[2*i + 1]);
     }
 
     free(x0);
@@ -240,5 +249,58 @@ int main()
     free(x2);
     free(y2);
   }
+
+  int nt;
+  // weak scaling
+  const int factor = 1048576;
+  for(nt = 1; nt < 128; nt *= 2)
+  {
+    n = (unsigned int)(nt * factor);
+    complex_t *x1 = (complex_t*)malloc(n*sizeof(complex_t));
+    complex_t *y1 = (complex_t*)malloc(n*sizeof(complex_t));
+
+    for(i = 0; i < n ; ++i)
+    {
+      x1[i].r = (double)rand()/RAND_MAX - 0.5;
+      x1[i].i = (double)rand()/RAND_MAX - 0.5;
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    fft_omp(x1, y1, n, nt);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    timeint = (t1.tv_sec + t1.tv_nsec/1e9) - (t0.tv_sec + t0.tv_nsec/1e9);
+    printf("weak scaling, problem size: %d, num of threads: %d, omp: %f\n", n, nt, timeint);
+
+    free(x1);
+    free(y1);
+  }
+
+
+  // strong scaling
+  n = 268435456;//1073741824;
+  for(nt = 1; nt < 128; nt *= 2)
+  {
+
+    complex_t *x1 = (complex_t*)malloc(n*sizeof(complex_t));
+    complex_t *y1 = (complex_t*)malloc(n*sizeof(complex_t));
+
+    for(i = 0; i < n ; ++i)
+    {
+      x1[i].r = (double)rand()/RAND_MAX - 0.5;
+      x1[i].i = (double)rand()/RAND_MAX - 0.5;
+    }
+
+
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+    fft_omp(x1, y1, n, nt);
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    timeint = (t1.tv_sec + t1.tv_nsec/1e9) - (t0.tv_sec + t0.tv_nsec/1e9);
+    printf("strong scaling, problem size: %d, num of threads: %d, omp: %f\n", n, nt, timeint);
+
+    free(x1);
+    free(y1);
+  }
+
+
   return 0;
 }
