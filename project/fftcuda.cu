@@ -9,6 +9,7 @@
 
 #define pi 3.14159265358979323846
 #define BLOCK_SIZE 512
+#define GRID_SIZE 8192
 
 // g++ $(gsl-config --cflags) fft.cpp $(gsl-config --libs)
 
@@ -98,11 +99,11 @@ double fsin(double x)
 
 // from http://www.katjaas.nl/bitreversal/bitreversal.html
 __device__  __host__
-unsigned int bitrev(unsigned int n, unsigned int bits)
+unsigned long bitrev(unsigned long n, unsigned int bits)
 {
-    unsigned int nrev, N;
+    unsigned long nrev, N;
     unsigned int count;   
-    N = 1<<bits;
+    N = 1UL<<bits;
     count = bits-1;   // initialize the count variable
     nrev = n;
     for(n>>=1; n; n>>=1)
@@ -119,25 +120,25 @@ unsigned int bitrev(unsigned int n, unsigned int bits)
 }
 
 __global__
-void bitrearrange_kernel(double*xr_d, double*xi_d, double*yr_d, double*yi_d, int n, int bits)
+void bitrearrange_kernel(double*xr_d, double*xi_d, double*yr_d, double*yi_d, unsigned long n, unsigned int bits)
 {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if(tid < n)
+  unsigned long tid = threadIdx.x + blockIdx.x * blockDim.x;
+  while(tid < n)
   {
     yr_d[bitrev(tid, bits)] = xr_d[tid];
     yi_d[bitrev(tid, bits)] = xi_d[tid];
+    tid += blockDim.x * gridDim.x;
   }
 }
 
 __global__
-void fftinner_kernel(double*yr_d, double*yi_d, double omega_m_r, double omega_m_i, int m, int n)
+void fftinner_kernel(double*yr_d, double*yi_d, double omega_m_r, double omega_m_i, unsigned long m, unsigned long n)
 {
-  //for(k = 0; k < n; k += m)
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  int k = tid * m;
-  if(k < n)
+  unsigned long tid = threadIdx.x + blockIdx.x * blockDim.x;
+  unsigned long k = tid * m;
+  unsigned long j;
+  while(k < n)
   {
-    int j;
     double omega_r = 1.0;
     double omega_i = 0.0;
     double t0_r, t0_i, t_r, t_i, u_r, u_i, t1_r, t1_i;
@@ -159,17 +160,19 @@ void fftinner_kernel(double*yr_d, double*yi_d, double omega_m_r, double omega_m_
       omega_r = t1_r;
       omega_i = t1_i;
     }
+    tid += blockDim.x*gridDim.x;
+    k = tid * m;
   }
 
 }
 
-void ftt_cuda(double* xr, double*xi, double*yr, double*yi, int n)
+void ftt_cuda(double* xr, double*xi, double*yr, double*yi, unsigned long n)
 {
   double*xr_d, *xi_d, *yr_d, *yi_d;
   //int i, m, k, j;
-  int m;
+  unsigned long m;
   size_t memfree, memtotal;
-  int bits = (int)log2((double)n);
+  unsigned int bits = (unsigned int)log2((double)n);
   cudaMalloc(&xr_d, n*sizeof(double));
   cudaMalloc(&xi_d, n*sizeof(double));
   cudaMalloc(&yr_d, n*sizeof(double));
@@ -181,9 +184,8 @@ void ftt_cuda(double* xr, double*xi, double*yr, double*yi, int n)
   //cudaMemcpy(yr_d, yr, n*sizeof(double), cudaMemcpyHostToDevice);
   //cudaMemcpy(yi_d, yi, n*sizeof(double), cudaMemcpyHostToDevice);
 
-  int nblocks1 = (n + BLOCK_SIZE - 1)/BLOCK_SIZE;
 
-  bitrearrange_kernel<<<nblocks1, BLOCK_SIZE>>>(xr_d, xi_d, yr_d, yi_d, n, (int)log2((double)n));
+  bitrearrange_kernel<<<GRID_SIZE, BLOCK_SIZE>>>(xr_d, xi_d, yr_d, yi_d, n, (unsigned int)log2((double)n));
 
 
   for(m = 2; m <= n; m*=2)
@@ -193,11 +195,11 @@ void ftt_cuda(double* xr, double*xi, double*yr, double*yi, int n)
     double omega_m_i = fsin(theta);
 
 
-    int n2 = n/m;
-    int nblocks2 = (n2 + BLOCK_SIZE - 1)/BLOCK_SIZE;
+    //int n2 = n/m;
+    //int nblocks2 = (n2 + BLOCK_SIZE - 1)/BLOCK_SIZE;
 
     //(double*yr_d, double*yi_d, double omega_m_r, double omega_m_i, int m, int n)
-    fftinner_kernel<<<nblocks2, BLOCK_SIZE>>>(yr_d, yi_d, omega_m_r, omega_m_i, m, n);
+    fftinner_kernel<<<GRID_SIZE, BLOCK_SIZE>>>(yr_d, yi_d, omega_m_r, omega_m_i, m, n);
   }
 
 
@@ -215,10 +217,10 @@ void ftt_cuda(double* xr, double*xi, double*yr, double*yi, int n)
   //printf("free mem: %d, total mem: %d\n", memfree, memtotal);
 }
 
-void fft_seq(complex_t* x, complex_t*y, int n)
+void fft_seq(complex_t* x, complex_t*y, unsigned long n)
 {
-  int i, m, k, j;
-  int bits = (int)log2((double)n);
+  unsigned long i, m, k, j;
+  unsigned int bits = (int)log2((double)n);
   for(i = 0; i < n; ++i)
     y[bitrev(i, bits)] = x[i];
 
@@ -282,8 +284,8 @@ void fft_omp(complex_t* x, complex_t*y, int n)
 
 int main()
 {
-  int size_limit = (1<<23);
-  int n, i;
+  unsigned long size_limit = (1UL<<30);
+  unsigned long  n, i;
   struct timespec t0, t1;
   double timeint;
   srand(time(NULL));

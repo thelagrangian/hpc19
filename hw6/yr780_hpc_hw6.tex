@@ -80,9 +80,9 @@ table {./plot/weak.plot};
 
 \end{axis}
 \end{tikzpicture}
-\caption{Weak scaling}
+\caption{Weak scaling test}
 \end{figure}
-
+A program is weakly scalable, if when the number of processes/threads increases $x$ times, the program completes an $x$ times larger problem within the same amount of time. Therefore, from the plot above, we can conclude that the Jacobi solver is not weakly scalable.
 
 \subsection{\label{sec:sec1.2}Blocking version strong scaling study}
 The following study was conducted with the following parameters, $N=\sqrt{10240000} = 3200$, number of iterations $10$.
@@ -119,10 +119,10 @@ table {./plot/ref.plot};
 
 \end{axis}
 \end{tikzpicture}
-\caption{Strong scaling}
+\caption{Strong scaling test}
 \end{figure}
 
-
+A program is strongly scalable, if when the number of processes/threads increases $x$ times, the program completes a same-size problem $x$ faster, which means the speedup of the program is proportional to the number of processes/threads. Therefore, from the plot above, we can conclude that the Jacobi solver is not strongly scalable. Actually the linearity relation only holds up to four (4) processes.
 
 \subsection{\label{sec:sec1.3}Non-blocking version comparison}
 The same experiments were conducted using the non-blocking implementation.
@@ -144,8 +144,10 @@ Non-blocking time (second) & 0.624653 & 0.160637& 0.066820 &  0.057231& 0.705940
   \end{tabular}
 \end{center}
 
+From the comparison above, we can conclude that the non-blocking version of the program always has better performance than the blocking version. The advance is more significant when the problem size is large.
+
 \section{\label{sec:sec2}2. Parallel sample sort}
-With setup, {\tt --nodes=8} and {\tt --ntasks-per-node=8}, 
+With setups, {\tt --nodes=8} and {\tt --ntasks-per-node=8}, i.e., totally 64 processes, the running time versus the number of random numbers generated in a process is presented as below.
 
 \begin{center}
   \begin{tabular}{c | c | c | c }
