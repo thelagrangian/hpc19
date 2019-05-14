@@ -111,14 +111,14 @@ The rest of the paper is organized as follows. Section \ref{sec:sec1} discusses 
 We first implemented the sequential version of FFT, with $\mathcal{O}(n\log n)$ complexity.
 There are several points worth noticing as follows.
 \begin{enumerate}
-\item A fast implementation of sine and cosine functions is used, which covers the domain of $[-\pi, \pi]$. It is sufficient in term of the use of FFT.
+\item A fast implementation of sine and cosine functions is used, which covers the domain of $[-\pi, \pi]$. It is sufficient in terms of the use of FFT.
 \item When the problem size is relatively large, there exists numerical discrepancy between the results of the implementation and the GNU Scientific Library (GSL). For example, when the problem size is 67,108,864, there are 48 such instances that the relative error of either the real or the imaginary part is greater than $10^{-3}$, and it always happens at the points where the absolute value of the result is small. It is very rare when the problem size is less than this scale. Furthermore, using sine and cosine functions from {\tt C} language's {\tt math.c} library does not remedy the discrepancy significantly.
 \end{enumerate}
 
 \section{\label{sec:sec2}2. OpenMP implementation of FFT}
 Although the algorithm above has been adapted to the form of iteration, it still keeps the trace of recursion, which means not all the iterations are independent. It is clear that the bit-reverse-copy function, line 5, has independent iterations, and the loop on line 10 has independent iterations. We can use OpenMP to parallel these portions of FFT. The program was compiled and run on cuda2.cims, which has two (2) 20-core CPUs. Since the OpenMP code does not explicitly indicate the CPU usage, the program would run on one of the CPUs, which means it could utilize 20 cores. The followings are the time measures, FIG. \ref{fig:fig1}, and the speedup of the OpenMP implementation, FIG. \ref{fig:fig2}.
 
-The speedup measured is never greater than 10, given the program is run on a 20-core machine. The phenomenon is understandable in terms of Amdahl's law. The outermost and innermost loops, line 7 and line 12, respectively, in the algorithm are iteration dependent, which cannot be parallelized. They serialize a great portion of the program.
+The running time of the OpenMP implementation becomes shorter than both sequential and GSL implementations when the problem size is over the order of $10^5$. This is because OpenMP needs to spawn and join threads, which involves system calls, and problem with relatively small size is not able to compensate such overhead. The speedup measured is never greater than 10, given the program is run on a 20-core machine. The phenomenon is understandable in terms of Amdahl's law. The outermost and innermost loops, line 7 and line 12, respectively, in the algorithm are iteration dependent, which cannot be parallelized. They serialize a great portion of the program.
 
 \begin{figure}[h]
   \centering
@@ -172,7 +172,6 @@ table {./plot/speedup.data};
 \end{minipage}
 \end{figure}
 
-\newpage
 One could also study the scalability of the OpenMP implementation. A program is weakly scalable, if when the number of processes/threads increases $x$ times, the program completes an $x$ times larger problem within the same amount of time. Therefore, from FIG. \ref{fig:fig3}, we can conclude that the OpenMP implementation of FFT is not weakly scalable.
 
 A program is strongly scalable, if when the number of processes/threads increases $x$ times, the program completes a same-size problem $x$ faster, which means the speedup of the program is proportional to the number of processes/threads. Therefore, from FIG. \ref{fig:fig4}, we can conclude that the OpenMP implementation of FFT is not strongly scalable.
@@ -293,7 +292,12 @@ table {./plot/cudaspeedup.data};
 \end{figure}
 
 \section{\label{sec:sec4}4. Conclusion}
-
+From the experimentations conducted above one could conclude that
+\begin{enumerate}
+\item The self-implemented sequential FFT algorithm generally has very similar performance to the GSL FFT function, and for large problem size, the performance of self-implementation even exceeds GSL.
+\item The OpenMP implementation of FFT shows significant advantage when problem size is greater than $10^5$. However, because of the existence of the sequential portion in the algorithm, the multithreaded FFT algorithm is not either weakly scalable or strongly scalable.
+\item The naive cuda implementation of FFT does not provide reasonable speedup due to multiple factors, including device memory limit, and inefficient device memory access. cuda provides optimized cuFFT API, which is the cuda Fast Fourier Transform library.
+\end{enumerate}
 
 
 \medskip
@@ -305,6 +309,10 @@ Bit reverse, \url{http://www.katjaas.nl/bitreversal/bitreversal.html}.
 
 \bibitem{ref:bookscwmaa} 
 Jakub Kurzak, David A. Bader, Jack Dongarra, \textit{Scientific Computing with Multicore and Accelerators}, Chapman \& Hall/CRC, 2010.
+
+
+\bibitem{ref:gsl} 
+FFT of GNU GSL, \url{https://www.gnu.org/software/gsl/doc/html/fft.html}.
 
 \end{thebibliography}
 
